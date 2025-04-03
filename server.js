@@ -234,6 +234,17 @@ app.post("/cd/api/add-webhook", async (req, res) => {
 
   try {
     const webhookUrl = `${HOST}/cd/api/webhook`; // Use HOST for webhook URL
+    const webhookPayload = {
+      name: "web",
+      active: true,
+      events: ["push"],
+      config: {
+        url: webhookUrl,
+        content_type: "json",
+      },
+    };
+
+    console.log(`Installing webhook for ${repoName}:`, webhookPayload); // Log webhook details
 
     const response = await fetch(
       `https://api.github.com/repos/${repoName}/hooks`,
@@ -243,15 +254,7 @@ app.post("/cd/api/add-webhook", async (req, res) => {
           Authorization: `Bearer ${accessToken}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          name: "web",
-          active: true,
-          events: ["push"],
-          config: {
-            url: webhookUrl,
-            content_type: "json",
-          },
-        }),
+        body: JSON.stringify(webhookPayload),
       }
     );
 
@@ -348,11 +351,9 @@ app.post("/cd/api/webhook", async (req, res) => {
         `Script not found for ${owner.login}/${repo}:`,
         error.message
       );
-      return res
-        .status(404)
-        .json({
-          error: `Script not found for repository ${owner.login}/${repo}.`,
-        });
+      return res.status(404).json({
+        error: `Script not found for repository ${owner.login}/${repo}.`,
+      });
     }
     console.error("Error handling webhook:", error.message);
     res.status(500).json({ error: "Failed to handle webhook." });
