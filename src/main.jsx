@@ -5,7 +5,8 @@ import "./index.css";
 function App() {
   const [repos, setRepos] = useState([]);
   const [isAuthorized, setIsAuthorized] = useState(false);
-  const [selectedRepos, setSelectedRepos] = useState([]);
+  const [selectedRepo, setSelectedRepo] = useState(null);
+  const [webhooks, setWebhooks] = useState([]);
 
   useEffect(() => {
     // Check if the user is authorized
@@ -18,6 +19,7 @@ function App() {
   useEffect(() => {
     if (!isAuthorized) return;
 
+    // Fetch all repositories the user has access to
     fetch("/cd/api/repos")
       .then((res) => {
         if (res.status === 401) {
@@ -34,33 +36,37 @@ function App() {
     window.location.href = "/cd/api/auth/github";
   };
 
-  const handleRepoSelection = (repoName) => {
-    setSelectedRepos((prev) =>
-      prev.includes(repoName)
-        ? prev.filter((name) => name !== repoName)
-        : [...prev, repoName]
-    );
+  const handleRepoClick = (repo) => {
+    setSelectedRepo(repo);
+
+    // Fetch webhooks for the selected repository
+    fetch(`https://api.github.com/repos/${repo.full_name}/hooks`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+      .then((res) => res.json())
+      .then(setWebhooks)
+      .catch((err) => console.error("Failed to fetch webhooks:", err));
   };
 
-  const addWebhooks = () => {
+  const setupWebhook = () => {
     fetch("/cd/api/add-webhook", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ repoNames: selectedRepos }),
+      body: JSON.stringify({ repoNames: [selectedRepo.full_name] }),
     })
       .then((res) => {
         if (!res.ok) {
-          throw new Error("Failed to add webhooks.");
+          throw new Error("Failed to add webhook.");
         }
         return res.json();
       })
-      .then((data) => {
-        alert("Webhook processing completed.");
-        console.log(data.results);
+      .then(() => {
+        alert("Webhook added successfully.");
+        handleRepoClick(selectedRepo); // Refresh webhook details
       })
-      .catch((err) => console.error("Failed to add webhooks:", err));
+      .catch((err) => console.error("Failed to add webhook:", err));
   };
 
   return (
@@ -73,33 +79,63 @@ function App() {
           Authorize GitHub
         </button>
       ) : (
-        <div>
-          <h2 className="text-3xl font-bold">Available Repositories</h2>
-          <ul className="mt-4 space-y-2">
+        <div className="w-full max-w-4xl">
+          <h2 className="text-3xl font-bold mb-4">Repositories</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {repos.map((repo) => (
-              <li
+              <div
                 key={repo.id}
-                className="text-gray-400 flex justify-between items-center"
+                className={`p-4 border rounded-lg cursor-pointer ${
+                  selectedRepo?.id === repo.id
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-800 text-gray-400"
+                }`}
+                onClick={() => handleRepoClick(repo)}
               >
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={selectedRepos.includes(repo.full_name)}
-                    onChange={() => handleRepoSelection(repo.full_name)}
-                    className="mr-2"
-                  />
-                  {repo.full_name}
-                </label>
-              </li>
+                <h3 className="text-lg font-semibold">{repo.full_name}</h3>
+                <p className="text-sm">
+                  {repo.description || "No description"}
+                </p>
+              </div>
             ))}
-          </ul>
-          <button
-            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
-            onClick={addWebhooks}
-            disabled={selectedRepos.length === 0}
-          >
-            Add Webhooks to Selected Repositories
-          </button>
+          </div>
+
+          {selectedRepo && (
+            <div className="mt-8 p-4 bg-gray-800 rounded-lg">
+              <h3 className="text-2xl font-bold mb-4">
+                Webhooks for {selectedRepo.full_name}
+              </h3>
+              <ul className="space-y-2">
+                {webhooks.length > 0 ? (
+                  webhooks.map((webhook) => (
+                    <li
+                      key={webhook.id}
+                      className="p-2 border rounded-lg bg-gray-700 text-gray-300"
+                    >
+                      <p>
+                        <strong>URL:</strong> {webhook.config.url}
+                      </p>
+                      <p>
+                        <strong>Events:</strong> {webhook.events.join(", ")}
+                      </p>
+                      <p>
+                        <strong>Status:</strong>{" "}
+                        {webhook.active ? "Active" : "Inactive"}
+                      </p>
+                    </li>
+                  ))
+                ) : (
+                  <p className="text-gray-400">No webhooks found.</p>
+                )}
+              </ul>
+              <button
+                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                onClick={setupWebhook}
+              >
+                Setup Webhook
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
