@@ -134,7 +134,12 @@ function App() {
                 }`}
                 onClick={() => toggleRepoExpansion(repo)}
               >
-                <h3 className="text-lg font-medium">{repo.full_name}</h3>
+                <h3
+                  className="text-lg font-medium truncate"
+                  title={repo.full_name} // Show full name on hover
+                >
+                  {repo.full_name}
+                </h3>
                 <p className="text-sm text-gray-600">
                   {repo.description || "No description"}
                 </p>
