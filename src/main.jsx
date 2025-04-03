@@ -39,6 +39,7 @@ function App() {
   }, [isAuthorized]);
 
   const handleAuthorize = () => {
+    // Always redirect to the GitHub authorization page
     window.location.href = "/cd/api/auth/github";
   };
 
@@ -53,6 +54,8 @@ function App() {
         return res.json();
       })
       .then(() => {
+        setIsAuthorized(false); // Reset the authorization state
+        setAccessToken(null); // Clear the access token in the frontend
         handleAuthorize(); // Redirect to GitHub authorization page
       })
       .catch((err) => console.error("Failed to reauthorize:", err));

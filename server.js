@@ -12,12 +12,13 @@ const PORT = process.env.PORT || 3000;
 const CLIENT_ID = process.env.GITHUB_CLIENT_ID;
 const CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET;
 const TOKEN_PATH = process.env.GITHUB_TOKEN_PATH || "./token.json"; // Use env variable or default to ./token.json
+const HOST = process.env.HOST || "http://localhost:3000"; // Use env variable or default to http://localhost:3000
 
 let accessToken = null; // Store the single access token for the authenticated user
 
 // Redirect to GitHub authorization page
 app.get("/cd/api/auth/github", (req, res) => {
-  const redirectUri = `https://github.com/login/oauth/authorize?client_id=${CLIENT_ID}&scope=repo,read:org,admin:repo_hook&redirect_uri=http://localhost:3000/cd/api/github/callback`;
+  const redirectUri = `https://github.com/login/oauth/authorize?client_id=${CLIENT_ID}&scope=repo,read:org,admin:repo_hook&redirect_uri=${HOST}/cd/api/github/callback`;
   res.redirect(redirectUri);
 });
 
@@ -65,7 +66,7 @@ app.get("/cd/api/github/callback", async (req, res) => {
     await fs.writeFile(TOKEN_PATH, JSON.stringify(tokenData, null, 2));
     console.log(`Token response saved to ${TOKEN_PATH}`);
 
-    res.redirect("/cd");
+    res.redirect(`${HOST}/cd`);
   } catch (error) {
     console.error("Error during GitHub OAuth callback:", error.message);
     res.status(500).send("Authorization failed. Please try again.");
@@ -103,7 +104,7 @@ app.get("/cd/api/auth-status", async (req, res) => {
       console.error("Failed to load access token from file:", error.message);
     }
   }
-  res.json({ isAuthorized: !!accessToken, accessToken });
+  res.json({ isAuthorized: !!accessToken }); // Do not send the accessToken to the frontend
 });
 
 // Fetch all repositories the authenticated user has access to
@@ -143,7 +144,7 @@ app.post("/cd/api/add-webhook", async (req, res) => {
   }
 
   try {
-    const webhookUrl = `${req.protocol}://${req.get("host")}/cd/api/webhook`;
+    const webhookUrl = `${HOST}/cd/api/webhook`; // Use HOST for webhook URL
     const results = [];
 
     for (const repoName of repoNames) {
