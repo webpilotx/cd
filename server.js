@@ -11,8 +11,16 @@ app.use(bodyParser.json());
 const PORT = process.env.PORT || 3000;
 const CLIENT_ID = process.env.GITHUB_CLIENT_ID;
 const CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET;
-const TOKEN_PATH = process.env.GITHUB_TOKEN_PATH || "./token.json"; // Use env variable or default to ./token.json
-const HOST = process.env.HOST || "http://localhost:3000"; // Use env variable or default to http://localhost:3000
+const TOKEN_PATH = process.env.GITHUB_TOKEN_PATH;
+const HOST = process.env.HOST;
+
+if (!TOKEN_PATH) {
+  throw new Error("Environment variable GITHUB_TOKEN_PATH is required.");
+}
+
+if (!HOST) {
+  throw new Error("Environment variable HOST is required.");
+}
 
 let accessToken = null; // Store the single access token for the authenticated user
 
