@@ -12,6 +12,7 @@ function App() {
   const [editingRepoId, setEditingRepoId] = useState(null); // Track the repo being edited
   const [scriptContent, setScriptContent] = useState(""); // Store the script content
   const [checkingWebhooks, setCheckingWebhooks] = useState(null); // Track webhook checking state
+  const [installingWebhookRepoId, setInstallingWebhookRepoId] = useState(null); // Track webhook installation state
 
   useEffect(() => {
     // Check if the user is authorized and fetch the access token
@@ -103,6 +104,7 @@ function App() {
   };
 
   const setupWebhook = (repo) => {
+    setInstallingWebhookRepoId(repo.id); // Mark the repo as installing webhook
     fetch("/cd/api/add-webhook", {
       method: "POST",
       headers: {
@@ -119,12 +121,15 @@ function App() {
         return res.json();
       })
       .then(() => {
-        toggleRepoExpansion(repo); // Refresh webhook details
+        // Directly fetch the script and enable editing after webhook installation
+        fetchScript(repo);
+        setEditingRepoId(repo.id);
       })
       .catch((err) => {
         console.error("Failed to add webhook:", err.message);
         alert(`Failed to add webhook: ${err.message}`); // Display error to the user
-      });
+      })
+      .finally(() => setInstallingWebhookRepoId(null)); // Reset the installation state
   };
 
   const fetchScript = (repo) => {
@@ -252,10 +257,17 @@ function App() {
                         </div>
                       ) : (
                         <button
-                          className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                          className={`mt-4 px-4 py-2 rounded-md focus:outline-none focus:ring-2 ${
+                            installingWebhookRepoId === repo.id
+                              ? "bg-gray-400 text-gray-700 cursor-not-allowed"
+                              : "bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-400"
+                          }`}
                           onClick={() => setupWebhook(repo)}
+                          disabled={installingWebhookRepoId === repo.id} // Disable button while installing
                         >
-                          Setup Webhook
+                          {installingWebhookRepoId === repo.id
+                            ? "Installing..."
+                            : "Setup Webhook"}
                         </button>
                       )}
                     </div>
