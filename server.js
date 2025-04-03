@@ -75,6 +75,25 @@ app.get("/cd/api/github/callback", async (req, res) => {
   }
 });
 
+// Clear the access token to allow reauthorization
+app.post("/cd/api/reauthorize", async (req, res) => {
+  try {
+    accessToken = null; // Clear the in-memory token
+    await fs.unlink("/home/chientrm/cd/token.json"); // Remove the token file if it exists
+    console.log("Access token cleared. Ready for reauthorization.");
+    res.status(200).json({ message: "Reauthorization ready." });
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      // File does not exist, proceed without error
+      console.log("Token file not found. Proceeding with reauthorization.");
+      res.status(200).json({ message: "Reauthorization ready." });
+    } else {
+      console.error("Failed to clear access token:", error.message);
+      res.status(500).json({ error: "Failed to clear access token." });
+    }
+  }
+});
+
 // Check if the server has an authorized token
 app.get("/cd/api/auth-status", async (req, res) => {
   if (!accessToken) {
