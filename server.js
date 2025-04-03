@@ -391,30 +391,52 @@ app.post("/cd/api/webhook", async (req, res) => {
       fi
     `;
 
-    exec(gitCommand, async (error, stdout, stderr) => {
-      if (error) {
-        console.error(`Git operation failed: ${stderr}`);
-        return res
-          .status(500)
-          .json({ error: "Failed to clone or pull repository." });
+    const gitProcess = exec(gitCommand);
+
+    // Stream git operation output
+    gitProcess.stdout.on("data", (data) => {
+      console.log(`Git output: ${data}`);
+      res.write(`Git output: ${data}`);
+    });
+
+    gitProcess.stderr.on("data", (data) => {
+      console.error(`Git error: ${data}`);
+      res.write(`Git error: ${data}`);
+    });
+
+    gitProcess.on("close", (code) => {
+      if (code !== 0) {
+        console.error(`Git process exited with code ${code}`);
+        res.end(`Git process failed with code ${code}`);
+        return;
       }
 
-      console.log(`Git operation output: ${stdout}`);
+      console.log("Git operation completed successfully.");
 
       // Run the script
-      exec(
-        `bash ${scriptPath}`,
-        { cwd: workingDir },
-        (error, stdout, stderr) => {
-          if (error) {
-            console.error(`Script execution failed: ${stderr}`);
-            return res.status(500).json({ error: "Failed to execute script." });
-          }
+      const scriptProcess = exec(`bash ${scriptPath}`, { cwd: workingDir });
 
-          console.log(`Script executed successfully: ${stdout}`);
-          res.status(200).json({ message: "Script executed successfully." });
+      // Stream script execution output
+      scriptProcess.stdout.on("data", (data) => {
+        console.log(`Script output: ${data}`);
+        res.write(`Script output: ${data}`);
+      });
+
+      scriptProcess.stderr.on("data", (data) => {
+        console.error(`Script error: ${data}`);
+        res.write(`Script error: ${data}`);
+      });
+
+      scriptProcess.on("close", (code) => {
+        if (code !== 0) {
+          console.error(`Script process exited with code ${code}`);
+          res.end(`Script process failed with code ${code}`);
+          return;
         }
-      );
+
+        console.log("Script executed successfully.");
+        res.end("Script executed successfully.");
+      });
     });
   } catch (error) {
     console.error("Error handling webhook:", error.message);
@@ -478,6 +500,66 @@ app.post("/cd/api/repos/:owner/:repo/run-script", async (req, res) => {
   } catch (error) {
     console.error("Error running script:", error.message);
     res.status(500).json({ error: "Failed to run script." });
+  }
+});
+
+// Fetch branches for a specific repository
+app.get("/cd/api/repos/:owner/:repo/branches", async (req, res) => {
+  const { owner, repo } = req.params;
+
+  if (!accessToken) {
+    return res
+      .status(401)
+      .json({ error: "Unauthorized. Please authorize first." });
+  }
+
+  try {
+    const response = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/branches`,
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `GitHub API responded with status ${response.status} for fetching branches`
+      );
+    }
+
+    const branches = await response.json();
+    res.json(branches);
+  } catch (error) {
+    console.error("Error fetching branches:", error.message);
+    res.status(500).json({ error: "Failed to fetch branches." });
+  }
+});
+
+// Save configuration for a specific repository
+app.post("/cd/api/repos/:owner/:repo/config", async (req, res) => {
+  const { owner, repo } = req.params;
+  const { script, branch, workingDir } = req.body;
+
+  if (!branch || !workingDir) {
+    return res
+      .status(400)
+      .json({ error: "Branch and working directory are required." });
+  }
+
+  try {
+    const configPath = path.join(SCRIPTS_DIR, `${owner}_${repo}_config.json`);
+    const config = { script, branch, workingDir };
+
+    console.log(`Saving configuration to: ${configPath}`);
+    await fs.writeFile(configPath, JSON.stringify(config, null, 2));
+    console.log(`Configuration saved successfully for ${owner}/${repo}`);
+    res.status(200).json({ message: "Configuration saved successfully." });
+  } catch (error) {
+    console.error(
+      `Error saving configuration for ${owner}/${repo}:`,
+      error.message
+    );
+    res.status(500).json({ error: "Failed to save configuration." });
   }
 });
 

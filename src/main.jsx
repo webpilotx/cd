@@ -15,6 +15,7 @@ function App() {
   const [installingWebhookRepoId, setInstallingWebhookRepoId] = useState(null); // Track webhook installation state
   const [selectedBranch, setSelectedBranch] = useState("main"); // Track selected branch
   const [workingDir, setWorkingDir] = useState(""); // Track working directory
+  const [branches, setBranches] = useState([]); // Store available branches for the repo
 
   useEffect(() => {
     // Check if the user is authorized and fetch the access token
@@ -225,6 +226,52 @@ function App() {
       });
   };
 
+  const fetchBranches = (repo) => {
+    fetch(`/cd/api/repos/${repo.owner.login}/${repo.name}/branches`)
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error("Failed to fetch branches.");
+        }
+        return res.json();
+      })
+      .then((data) => setBranches(data))
+      .catch((err) => console.error("Failed to fetch branches:", err));
+  };
+
+  const saveConfig = (repo) => {
+    if (!workingDir.trim()) {
+      alert("Working directory cannot be empty.");
+      return;
+    }
+
+    const config = {
+      script: scriptContent,
+      branch: selectedBranch,
+      workingDir,
+    };
+
+    fetch(`/cd/api/repos/${repo.owner.login}/${repo.name}/config`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(config),
+    })
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error("Failed to save configuration.");
+        }
+        return res.json();
+      })
+      .then(() => {
+        alert("Configuration saved successfully.");
+      })
+      .catch((err) => {
+        console.error("Failed to save configuration:", err);
+        alert("Failed to save configuration.");
+      });
+  };
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 text-gray-900 px-4">
       {!isAuthorized ? (
@@ -286,7 +333,7 @@ function App() {
                           onClick={(e) => e.stopPropagation()} // Prevent event propagation
                         >
                           <h4 className="text-md font-semibold mb-2">
-                            Edit Script
+                            Edit Configuration
                           </h4>
                           <textarea
                             className="w-full p-2 border rounded-md"
@@ -299,15 +346,20 @@ function App() {
                             <label className="block text-sm font-medium text-gray-700">
                               Branch
                             </label>
-                            <input
-                              type="text"
+                            <select
                               className="w-full p-2 border rounded-md"
                               value={selectedBranch}
                               onChange={(e) =>
                                 setSelectedBranch(e.target.value)
                               }
-                              placeholder="Enter branch name (e.g., main)"
-                            />
+                              onFocus={() => fetchBranches(repo)} // Fetch branches when the combobox is focused
+                            >
+                              {branches.map((branch) => (
+                                <option key={branch.name} value={branch.name}>
+                                  {branch.name}
+                                </option>
+                              ))}
+                            </select>
                           </div>
                           <div className="mt-4">
                             <label className="block text-sm font-medium text-gray-700">
@@ -324,21 +376,15 @@ function App() {
                           <div className="flex mt-4">
                             <button
                               className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-400"
-                              onClick={() => saveScript(repo)}
+                              onClick={() => saveConfig(repo)}
                             >
-                              Save Script
-                            </button>
-                            <button
-                              className="ml-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                              onClick={() => runScript(repo)}
-                            >
-                              Run Script
+                              Save Configuration
                             </button>
                             {webhooks[repo.id]?.find(
                               (webhook) =>
                                 webhook.config.url ===
                                 `${window.location.origin}/cd/api/webhook`
-                            ) && ( // Check for exact webhook match
+                            ) && (
                               <button
                                 className="ml-2 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-400"
                                 onClick={() =>
@@ -348,7 +394,7 @@ function App() {
                                       (webhook) =>
                                         webhook.config.url ===
                                         `${window.location.origin}/cd/api/webhook`
-                                    ).id // Safely access the exact matching webhook
+                                    ).id
                                   )
                                 }
                               >
