@@ -3,6 +3,7 @@ import express from "express";
 import bodyParser from "body-parser";
 import fetch from "node-fetch";
 import ViteExpress from "vite-express";
+import fs from "fs/promises";
 
 const app = express();
 app.use(bodyParser.json());
@@ -57,10 +58,17 @@ app.get("/cd/api/github/callback", async (req, res) => {
       );
     }
 
-    accessToken = tokenData.access_token; // Store the token
+    accessToken = tokenData.access_token; // Store the token in memory
     console.log("GitHub access token obtained successfully.");
 
-    res.redirect("/"); // Redirect to the frontend after successful authorization
+    // Save the token response to a file
+    await fs.writeFile(
+      "/home/chientrm/cd/token.json",
+      JSON.stringify(tokenData, null, 2)
+    );
+    console.log("Token response saved to /home/chientrm/cd/token.json");
+
+    res.redirect("/cd");
   } catch (error) {
     console.error("Error during GitHub OAuth callback:", error.message);
     res.status(500).send("Authorization failed. Please try again.");
@@ -68,7 +76,19 @@ app.get("/cd/api/github/callback", async (req, res) => {
 });
 
 // Check if the server has an authorized token
-app.get("/cd/api/auth-status", (req, res) => {
+app.get("/cd/api/auth-status", async (req, res) => {
+  if (!accessToken) {
+    try {
+      // Load the token from the file if not in memory
+      const tokenData = JSON.parse(
+        await fs.readFile("/home/chientrm/cd/token.json", "utf-8")
+      );
+      accessToken = tokenData.access_token;
+      console.log("Loaded access token from /home/chientrm/cd/token.json");
+    } catch (error) {
+      console.error("Failed to load access token from file:", error.message);
+    }
+  }
   res.json({ isAuthorized: !!accessToken });
 });
 
