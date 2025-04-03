@@ -167,7 +167,6 @@ function App() {
       })
       .then(() => {
         alert("Script saved successfully.");
-        setEditingRepoId(null); // Exit editing mode
       })
       .catch((err) => {
         console.error("Failed to save script:", err);
