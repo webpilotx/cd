@@ -124,17 +124,55 @@ app.get("/cd/api/repos", async (req, res) => {
   }
 
   try {
-    const response = await fetch(
-      "https://api.github.com/user/repos?type=all", // Include type=all to fetch personal and organization repos
+    // Fetch personal repositories
+    const userReposResponse = await fetch(
+      "https://api.github.com/user/repos?type=all", // Include type=all to fetch personal repos
       {
         headers: { Authorization: `Bearer ${accessToken}` },
       }
     );
-    if (!response.ok) {
-      throw new Error(`GitHub API responded with status ${response.status}`);
+
+    if (!userReposResponse.ok) {
+      throw new Error(
+        `GitHub API responded with status ${userReposResponse.status} for user repos`
+      );
     }
-    const data = await response.json();
-    res.json(data);
+
+    const userRepos = await userReposResponse.json();
+
+    // Fetch organizations the user belongs to
+    const orgsResponse = await fetch("https://api.github.com/user/orgs", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    if (!orgsResponse.ok) {
+      throw new Error(
+        `GitHub API responded with status ${orgsResponse.status} for user orgs`
+      );
+    }
+
+    const orgs = await orgsResponse.json();
+
+    // Fetch repositories for each organization
+    const orgReposPromises = orgs.map((org) =>
+      fetch(`https://api.github.com/orgs/${org.login}/repos`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }).then((response) => {
+        if (!response.ok) {
+          throw new Error(
+            `GitHub API responded with status ${response.status} for org ${org.login} repos`
+          );
+        }
+        return response.json();
+      })
+    );
+
+    const orgReposResults = await Promise.all(orgReposPromises);
+    const orgRepos = orgReposResults.flat(); // Flatten the array of arrays
+
+    // Combine personal and organization repositories
+    const allRepos = [...userRepos, ...orgRepos];
+    res.json(allRepos);
   } catch (error) {
     console.error("Error fetching repositories:", error.message);
     res.status(500).json({ error: "Failed to fetch repositories" });
