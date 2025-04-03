@@ -4,6 +4,7 @@ import bodyParser from "body-parser";
 import fetch from "node-fetch";
 import ViteExpress from "vite-express";
 import fs from "fs/promises";
+import path from "path";
 
 const app = express();
 app.use(bodyParser.json());
@@ -13,6 +14,7 @@ const CLIENT_ID = process.env.GITHUB_CLIENT_ID;
 const CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET;
 const TOKEN_PATH = process.env.GITHUB_TOKEN_PATH;
 const HOST = process.env.HOST;
+const SCRIPTS_DIR = process.env.SCRIPTS_DIR || path.resolve("./scripts"); // Use env variable or default to ./scripts
 
 if (!TOKEN_PATH) {
   throw new Error("Environment variable GITHUB_TOKEN_PATH is required.");
@@ -22,7 +24,14 @@ if (!HOST) {
   throw new Error("Environment variable HOST is required.");
 }
 
+if (!SCRIPTS_DIR) {
+  throw new Error("Environment variable SCRIPTS_DIR is required.");
+}
+
 let accessToken = null; // Store the single access token for the authenticated user
+
+// Ensure the scripts directory exists
+await fs.mkdir(SCRIPTS_DIR, { recursive: true });
 
 // Redirect to GitHub authorization page
 app.get("/cd/api/auth/github", (req, res) => {
@@ -261,6 +270,79 @@ app.post("/cd/api/add-webhook", async (req, res) => {
   } catch (error) {
     console.error("Error adding webhook:", error.message);
     res.status(500).json({ error: "Failed to add webhook." });
+  }
+});
+
+// Update or create a bash script for a specific repository
+app.post("/cd/api/repos/:owner/:repo/script", async (req, res) => {
+  const { owner, repo } = req.params;
+  const { script } = req.body;
+
+  if (!script) {
+    return res.status(400).json({ error: "Script content is required." });
+  }
+
+  try {
+    const scriptPath = path.join(SCRIPTS_DIR, `${owner}_${repo}.sh`);
+    await fs.writeFile(scriptPath, script, { mode: 0o755 }); // Save script with executable permissions
+    res.status(200).json({ message: "Script updated successfully." });
+  } catch (error) {
+    console.error("Error updating script:", error.message);
+    res.status(500).json({ error: "Failed to update script." });
+  }
+});
+
+// Get the bash script for a specific repository
+app.get("/cd/api/repos/:owner/:repo/script", async (req, res) => {
+  const { owner, repo } = req.params;
+
+  try {
+    const scriptPath = path.join(SCRIPTS_DIR, `${owner}_${repo}.sh`);
+    const script = await fs.readFile(scriptPath, "utf-8");
+    res.status(200).json({ script });
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return res.status(404).json({ error: "Script not found." });
+    }
+    console.error("Error reading script:", error.message);
+    res.status(500).json({ error: "Failed to read script." });
+  }
+});
+
+// Execute the bash script when the webhook is triggered
+app.post("/cd/api/webhook", async (req, res) => {
+  const { repository } = req.body;
+
+  if (!repository || !repository.owner || !repository.name) {
+    return res.status(400).json({ error: "Invalid webhook payload." });
+  }
+
+  const { owner, name: repo } = repository;
+
+  try {
+    const scriptPath = path.join(SCRIPTS_DIR, `${owner.login}_${repo}.sh`);
+    await fs.access(scriptPath); // Check if the script exists
+
+    const { exec } = await import("child_process");
+    exec(`bash ${scriptPath}`, (error, stdout, stderr) => {
+      if (error) {
+        console.error(
+          `Error executing script for ${owner.login}/${repo}:`,
+          stderr
+        );
+        return res.status(500).json({ error: "Failed to execute script." });
+      }
+      console.log(`Script executed for ${owner.login}/${repo}:`, stdout);
+      res.status(200).json({ message: "Script executed successfully." });
+    });
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return res
+        .status(404)
+        .json({ error: "Script not found for this repository." });
+    }
+    console.error("Error handling webhook:", error.message);
+    res.status(500).json({ error: "Failed to handle webhook." });
   }
 });
 

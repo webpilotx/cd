@@ -9,6 +9,8 @@ function App() {
   const [expandedRepoId, setExpandedRepoId] = useState(null); // Track the expanded repo
   const [webhooks, setWebhooks] = useState({}); // Store webhooks for each repo
   const [loading, setLoading] = useState(false); // Track loading state
+  const [editingRepoId, setEditingRepoId] = useState(null); // Track the repo being edited
+  const [scriptContent, setScriptContent] = useState(""); // Store the script content
 
   useEffect(() => {
     // Check if the user is authorized and fetch the access token
@@ -114,6 +116,42 @@ function App() {
       });
   };
 
+  const fetchScript = (repo) => {
+    fetch(`/cd/api/repos/${repo.owner.login}/${repo.name}/script`)
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error("Failed to fetch script.");
+        }
+        return res.json();
+      })
+      .then((data) => setScriptContent(data.script || ""))
+      .catch((err) => console.error("Failed to fetch script:", err));
+  };
+
+  const saveScript = (repo) => {
+    fetch(`/cd/api/repos/${repo.owner.login}/${repo.name}/script`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ script: scriptContent }),
+    })
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error("Failed to save script.");
+        }
+        return res.json();
+      })
+      .then(() => {
+        alert("Script saved successfully.");
+        setEditingRepoId(null); // Exit editing mode
+      })
+      .catch((err) => {
+        console.error("Failed to save script:", err);
+        alert("Failed to save script.");
+      });
+  };
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 text-gray-900 px-4">
       {!isAuthorized ? (
@@ -193,6 +231,37 @@ function App() {
                       >
                         Setup Webhook
                       </button>
+                      <button
+                        className="mt-4 ml-2 px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-400"
+                        onClick={() => {
+                          setEditingRepoId(repo.id);
+                          fetchScript(repo);
+                        }}
+                      >
+                        Edit Script
+                      </button>
+                      {editingRepoId === repo.id && (
+                        <div className="mt-4">
+                          <textarea
+                            className="w-full p-2 border rounded-md"
+                            rows="6"
+                            value={scriptContent}
+                            onChange={(e) => setScriptContent(e.target.value)}
+                          />
+                          <button
+                            className="mt-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-400"
+                            onClick={() => saveScript(repo)}
+                          >
+                            Save Script
+                          </button>
+                          <button
+                            className="mt-2 ml-2 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-400"
+                            onClick={() => setEditingRepoId(null)}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
