@@ -268,15 +268,22 @@ function App() {
                             >
                               Save Script
                             </button>
-                            {webhooks[repo.id]?.length > 0 && ( // Check if webhooks exist
+                            {webhooks[repo.id]?.find(
+                              (webhook) =>
+                                webhook.config.url ===
+                                `${window.location.origin}/cd/api/webhook`
+                            ) && ( // Check for exact webhook match
                               <button
                                 className="ml-2 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-400"
-                                onClick={
-                                  () =>
-                                    uninstallWebhook(
-                                      repo,
-                                      webhooks[repo.id][0].id
-                                    ) // Safely access the first webhook
+                                onClick={() =>
+                                  uninstallWebhook(
+                                    repo,
+                                    webhooks[repo.id].find(
+                                      (webhook) =>
+                                        webhook.config.url ===
+                                        `${window.location.origin}/cd/api/webhook`
+                                    ).id // Safely access the exact matching webhook
+                                  )
                                 }
                               >
                                 Uninstall Webhook
