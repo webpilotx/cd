@@ -322,16 +322,14 @@ app.post("/cd/api/repos/:owner/:repo/script", async (req, res) => {
   const { owner, repo } = req.params;
   const { script } = req.body;
 
-  if (!script) {
-    return res.status(400).json({ error: "Script content is required." });
-  }
-
   try {
     const scriptPath = path.join(SCRIPTS_DIR, `${owner}_${repo}.sh`);
-    await fs.writeFile(scriptPath, script, { mode: 0o755 }); // Save script with executable permissions
+    console.log(`Saving script to: ${scriptPath}`); // Log the script path
+    await fs.writeFile(scriptPath, script || "", { mode: 0o755 }); // Write empty file if script is empty
+    console.log(`Script saved successfully for ${owner}/${repo}`);
     res.status(200).json({ message: "Script updated successfully." });
   } catch (error) {
-    console.error("Error updating script:", error.message);
+    console.error(`Error saving script for ${owner}/${repo}:`, error.message);
     res.status(500).json({ error: "Failed to update script." });
   }
 });
