@@ -11,6 +11,7 @@ app.use(bodyParser.json());
 const PORT = process.env.PORT || 3000;
 const CLIENT_ID = process.env.GITHUB_CLIENT_ID;
 const CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET;
+const TOKEN_PATH = process.env.GITHUB_TOKEN_PATH || "./token.json"; // Use env variable or default to ./token.json
 
 let accessToken = null; // Store the single access token for the authenticated user
 
@@ -62,11 +63,8 @@ app.get("/cd/api/github/callback", async (req, res) => {
     console.log("GitHub access token obtained successfully.");
 
     // Save the token response to a file
-    await fs.writeFile(
-      "/home/chientrm/cd/token.json",
-      JSON.stringify(tokenData, null, 2)
-    );
-    console.log("Token response saved to /home/chientrm/cd/token.json");
+    await fs.writeFile(TOKEN_PATH, JSON.stringify(tokenData, null, 2));
+    console.log(`Token response saved to ${TOKEN_PATH}`);
 
     res.redirect("/cd");
   } catch (error) {
@@ -79,7 +77,7 @@ app.get("/cd/api/github/callback", async (req, res) => {
 app.post("/cd/api/reauthorize", async (req, res) => {
   try {
     accessToken = null; // Clear the in-memory token
-    await fs.unlink("/home/chientrm/cd/token.json"); // Remove the token file if it exists
+    await fs.unlink(TOKEN_PATH); // Remove the token file if it exists
     console.log("Access token cleared. Ready for reauthorization.");
     res.status(200).json({ message: "Reauthorization ready." });
   } catch (error) {
@@ -99,11 +97,9 @@ app.get("/cd/api/auth-status", async (req, res) => {
   if (!accessToken) {
     try {
       // Load the token from the file if not in memory
-      const tokenData = JSON.parse(
-        await fs.readFile("/home/chientrm/cd/token.json", "utf-8")
-      );
+      const tokenData = JSON.parse(await fs.readFile(TOKEN_PATH, "utf-8"));
       accessToken = tokenData.access_token;
-      console.log("Loaded access token from /home/chientrm/cd/token.json");
+      console.log(`Loaded access token from ${TOKEN_PATH}`);
     } catch (error) {
       console.error("Failed to load access token from file:", error.message);
     }
