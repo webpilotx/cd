@@ -82,12 +82,16 @@ function App() {
         }
         return res.json();
       })
-      .then((data) =>
+      .then((data) => {
         setWebhooks((prev) => ({
           ...prev,
           [repo.id]: data,
-        }))
-      )
+        }));
+        if (data.length > 0) {
+          fetchScript(repo); // Fetch the script if webhooks are installed
+          setEditingRepoId(repo.id); // Automatically enable editing
+        }
+      })
       .catch((err) => console.error("Failed to fetch webhooks:", err));
   };
 
@@ -233,15 +237,6 @@ function App() {
                       >
                         Setup Webhook
                       </button>
-                      <button
-                        className="mt-4 ml-2 px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-400"
-                        onClick={() => {
-                          setEditingRepoId(repo.id);
-                          fetchScript(repo);
-                        }}
-                      >
-                        Edit Script
-                      </button>
                       {editingRepoId === repo.id && (
                         <div className="mt-4">
                           <h4 className="text-md font-semibold mb-2">
@@ -282,7 +277,11 @@ function App() {
   );
 }
 
-createRoot(document.getElementById("root")).render(
+const container = document.getElementById("root");
+let root = container._reactRoot || createRoot(container); // Reuse existing root if available
+container._reactRoot = root; // Store the root instance on the container
+
+root.render(
   <StrictMode>
     <App />
   </StrictMode>
