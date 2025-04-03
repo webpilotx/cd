@@ -170,6 +170,27 @@ function App() {
       });
   };
 
+  const uninstallWebhook = (repo, hookId) => {
+    fetch(`/cd/api/repos/${repo.owner.login}/${repo.name}/hooks/${hookId}`, {
+      method: "DELETE",
+    })
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error("Failed to uninstall webhook.");
+        }
+        return res.json();
+      })
+      .then(() => {
+        alert("Webhook uninstalled successfully.");
+        setEditingRepoId(null); // Disable script editing
+        toggleRepoExpansion(repo); // Refresh webhook details
+      })
+      .catch((err) => {
+        console.error("Failed to uninstall webhook:", err.message);
+        alert("Failed to uninstall webhook.");
+      });
+  };
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 text-gray-900 px-4">
       {!isAuthorized ? (
@@ -247,12 +268,20 @@ function App() {
                             >
                               Save Script
                             </button>
-                            <button
-                              className="ml-2 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-400"
-                              onClick={() => setEditingRepoId(null)}
-                            >
-                              Cancel
-                            </button>
+                            {webhooks[repo.id]?.length > 0 && ( // Check if webhooks exist
+                              <button
+                                className="ml-2 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-400"
+                                onClick={
+                                  () =>
+                                    uninstallWebhook(
+                                      repo,
+                                      webhooks[repo.id][0].id
+                                    ) // Safely access the first webhook
+                                }
+                              >
+                                Uninstall Webhook
+                              </button>
+                            )}
                           </div>
                         </div>
                       ) : (

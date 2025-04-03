@@ -222,6 +222,45 @@ app.get("/cd/api/repos/:owner/:repo/hooks", async (req, res) => {
   }
 });
 
+// Remove a webhook from a specific repository
+app.delete("/cd/api/repos/:owner/:repo/hooks/:hookId", async (req, res) => {
+  const { owner, repo, hookId } = req.params;
+
+  if (!accessToken) {
+    return res
+      .status(401)
+      .json({ error: "Unauthorized. Please authorize first." });
+  }
+
+  try {
+    console.log(`Removing webhook ${hookId} from ${owner}/${repo}`); // Log the webhook removal
+
+    const response = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/hooks/${hookId}`,
+      {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `Failed to remove webhook. GitHub responded with status ${response.status}`
+      );
+    }
+
+    res
+      .status(200)
+      .json({ message: `Webhook ${hookId} removed successfully.` });
+  } catch (error) {
+    console.error(
+      `Error removing webhook ${hookId} from ${owner}/${repo}:`,
+      error.message
+    );
+    res.status(500).json({ error: "Failed to remove webhook." });
+  }
+});
+
 // Add a webhook to a single repository
 app.post("/cd/api/add-webhook", async (req, res) => {
   const { repoName } = req.body;
