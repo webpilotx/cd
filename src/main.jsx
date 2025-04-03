@@ -244,24 +244,30 @@ function App() {
                       </button>
                       {editingRepoId === repo.id && (
                         <div className="mt-4">
+                          <h4 className="text-md font-semibold mb-2">
+                            Edit Script
+                          </h4>
                           <textarea
                             className="w-full p-2 border rounded-md"
                             rows="6"
                             value={scriptContent}
                             onChange={(e) => setScriptContent(e.target.value)}
+                            placeholder="Enter your bash script here..."
                           />
-                          <button
-                            className="mt-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-400"
-                            onClick={() => saveScript(repo)}
-                          >
-                            Save Script
-                          </button>
-                          <button
-                            className="mt-2 ml-2 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-400"
-                            onClick={() => setEditingRepoId(null)}
-                          >
-                            Cancel
-                          </button>
+                          <div className="flex mt-2">
+                            <button
+                              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-400"
+                              onClick={() => saveScript(repo)}
+                            >
+                              Save Script
+                            </button>
+                            <button
+                              className="ml-2 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-400"
+                              onClick={() => setEditingRepoId(null)}
+                            >
+                              Cancel
+                            </button>
+                          </div>
                         </div>
                       )}
                     </div>
