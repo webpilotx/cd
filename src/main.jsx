@@ -117,7 +117,9 @@ function App() {
   };
 
   const fetchScript = (repo) => {
-    fetch(`/cd/api/repos/${repo.owner.login}/${repo.name}/script`)
+    const url = `/cd/api/repos/${repo.owner.login}/${repo.name}/script`;
+    console.log(`Fetching script from: ${url}`); // Log the request URL
+    fetch(url)
       .then((res) => {
         if (!res.ok) {
           throw new Error("Failed to fetch script.");

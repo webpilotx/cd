@@ -33,6 +33,8 @@ let accessToken = null; // Store the single access token for the authenticated u
 // Ensure the scripts directory exists
 await fs.mkdir(SCRIPTS_DIR, { recursive: true });
 
+console.log(`Scripts directory: ${SCRIPTS_DIR}`); // Log the scripts directory path
+
 // Redirect to GitHub authorization page
 app.get("/cd/api/auth/github", (req, res) => {
   const redirectUri = `https://github.com/login/oauth/authorize?client_id=${CLIENT_ID}&scope=repo,read:org,admin:repo_hook&redirect_uri=${HOST}/cd/api/github/callback`;
@@ -298,13 +300,17 @@ app.get("/cd/api/repos/:owner/:repo/script", async (req, res) => {
 
   try {
     const scriptPath = path.join(SCRIPTS_DIR, `${owner}_${repo}.sh`);
+    console.log(`Fetching script from: ${scriptPath}`); // Log the script path
     const script = await fs.readFile(scriptPath, "utf-8");
     res.status(200).json({ script });
   } catch (error) {
     if (error.code === "ENOENT") {
-      return res.status(404).json({ error: "Script not found." });
+      console.warn(
+        `Script not found for ${owner}/${repo}. Returning empty script.`
+      );
+      return res.status(200).json({ script: "" }); // Return empty script if not found
     }
-    console.error("Error reading script:", error.message);
+    console.error(`Error reading script for ${owner}/${repo}:`, error.message);
     res.status(500).json({ error: "Failed to read script." });
   }
 });
@@ -321,6 +327,7 @@ app.post("/cd/api/webhook", async (req, res) => {
 
   try {
     const scriptPath = path.join(SCRIPTS_DIR, `${owner.login}_${repo}.sh`);
+    console.log(`Executing script from: ${scriptPath}`); // Log the script path
     await fs.access(scriptPath); // Check if the script exists
 
     const { exec } = await import("child_process");
@@ -337,9 +344,15 @@ app.post("/cd/api/webhook", async (req, res) => {
     });
   } catch (error) {
     if (error.code === "ENOENT") {
+      console.error(
+        `Script not found for ${owner.login}/${repo}:`,
+        error.message
+      );
       return res
         .status(404)
-        .json({ error: "Script not found for this repository." });
+        .json({
+          error: `Script not found for repository ${owner.login}/${repo}.`,
+        });
     }
     console.error("Error handling webhook:", error.message);
     res.status(500).json({ error: "Failed to handle webhook." });
