@@ -211,56 +211,56 @@ app.get("/cd/api/repos/:owner/:repo/hooks", async (req, res) => {
   }
 });
 
-// Add webhooks to multiple repositories
+// Add a webhook to a single repository
 app.post("/cd/api/add-webhook", async (req, res) => {
-  const { repoNames } = req.body;
+  const { repoName } = req.body;
 
-  if (!accessToken || !repoNames || !Array.isArray(repoNames)) {
+  if (!accessToken || !repoName) {
     return res
       .status(400)
-      .send("Access token and an array of repository names are required.");
+      .send("Access token and a repository name are required.");
   }
 
   try {
     const webhookUrl = `${HOST}/cd/api/webhook`; // Use HOST for webhook URL
-    const results = [];
 
-    for (const repoName of repoNames) {
-      const response = await fetch(
-        `https://api.github.com/repos/${repoName}/hooks`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            "Content-Type": "application/json",
+    const response = await fetch(
+      `https://api.github.com/repos/${repoName}/hooks`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: "web",
+          active: true,
+          events: ["push"],
+          config: {
+            url: webhookUrl,
+            content_type: "json",
           },
-          body: JSON.stringify({
-            name: "web",
-            active: true,
-            events: ["push"],
-            config: {
-              url: webhookUrl,
-              content_type: "json",
-            },
-          }),
-        }
-      );
-
-      if (response.ok) {
-        results.push({ repoName, status: "success" });
-      } else {
-        results.push({
-          repoName,
-          status: "failed",
-          error: response.statusText,
-        });
+        }),
       }
+    );
+
+    const responseBody = await response.json();
+
+    if (!response.ok) {
+      console.error(
+        `Failed to add webhook to ${repoName}. Status: ${response.status}, Response:`,
+        responseBody
+      );
+      return res.status(response.status).json({
+        error: `Failed to add webhook to ${repoName}.`,
+        details: responseBody,
+      });
     }
 
-    res.status(201).json({ message: "Webhook processing completed.", results });
+    res.status(201).json({ message: `Webhook added to ${repoName}` });
   } catch (error) {
-    console.error("Error adding webhooks:", error.message);
-    res.status(500).json({ error: "Failed to add webhooks." });
+    console.error("Error adding webhook:", error.message);
+    res.status(500).json({ error: "Failed to add webhook." });
   }
 });
 

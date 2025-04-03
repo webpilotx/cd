@@ -95,18 +95,23 @@ function App() {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ repoNames: [repo.full_name] }),
+      body: JSON.stringify({ repoName: repo.full_name }), // Send a single repository name
     })
       .then((res) => {
         if (!res.ok) {
-          throw new Error("Failed to add webhook.");
+          return res.json().then((error) => {
+            throw new Error(error.details?.message || "Failed to add webhook.");
+          });
         }
         return res.json();
       })
       .then(() => {
         toggleRepoExpansion(repo); // Refresh webhook details
       })
-      .catch((err) => console.error("Failed to add webhook:", err));
+      .catch((err) => {
+        console.error("Failed to add webhook:", err.message);
+        alert(`Failed to add webhook: ${err.message}`); // Display error to the user
+      });
   };
 
   return (
