@@ -89,7 +89,7 @@ app.get("/cd/api/auth-status", async (req, res) => {
       console.error("Failed to load access token from file:", error.message);
     }
   }
-  res.json({ isAuthorized: !!accessToken });
+  res.json({ isAuthorized: !!accessToken, accessToken });
 });
 
 // Fetch all repositories the authenticated user has access to

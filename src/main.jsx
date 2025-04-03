@@ -5,14 +5,20 @@ import "./index.css";
 function App() {
   const [repos, setRepos] = useState([]);
   const [isAuthorized, setIsAuthorized] = useState(false);
+  const [accessToken, setAccessToken] = useState(null); // Store the access token
   const [selectedRepo, setSelectedRepo] = useState(null);
   const [webhooks, setWebhooks] = useState([]);
 
   useEffect(() => {
-    // Check if the user is authorized
+    // Check if the user is authorized and fetch the access token
     fetch("/cd/api/auth-status")
       .then((res) => res.json())
-      .then((data) => setIsAuthorized(data.isAuthorized))
+      .then((data) => {
+        setIsAuthorized(data.isAuthorized);
+        if (data.isAuthorized) {
+          setAccessToken(data.accessToken); // Store the access token
+        }
+      })
       .catch((err) => console.error("Failed to check auth status:", err));
   }, []);
 
@@ -41,7 +47,7 @@ function App() {
 
     // Fetch webhooks for the selected repository
     fetch(`https://api.github.com/repos/${repo.full_name}/hooks`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
+      headers: { Authorization: `Bearer ${accessToken}` }, // Use the access token
     })
       .then((res) => res.json())
       .then(setWebhooks)
