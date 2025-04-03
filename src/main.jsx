@@ -101,7 +101,7 @@ function App() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 text-gray-900">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 text-gray-900 px-4">
       {!isAuthorized ? (
         <button
           className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
@@ -110,7 +110,7 @@ function App() {
           Authorize GitHub
         </button>
       ) : (
-        <div className="w-full max-w-4xl">
+        <div className="w-full max-w-4xl p-6 bg-white rounded-lg shadow-md">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-semibold">Repositories</h2>
             <button
@@ -127,7 +127,7 @@ function App() {
                 className={`p-4 border rounded-md shadow-sm cursor-pointer ${
                   expandedRepoId === repo.id
                     ? "bg-blue-50 border-blue-500"
-                    : "bg-white border-gray-200"
+                    : "bg-gray-100 border-gray-200"
                 }`}
                 onClick={() => toggleRepoExpansion(repo)}
               >
@@ -144,7 +144,7 @@ function App() {
                         webhooks[repo.id].map((webhook) => (
                           <li
                             key={webhook.id}
-                            className="p-3 border rounded-md bg-gray-100 text-gray-800"
+                            className="p-3 border rounded-md bg-gray-50 text-gray-800"
                           >
                             <p>
                               <strong>URL:</strong> {webhook.config.url}
