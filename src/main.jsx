@@ -95,27 +95,26 @@ function App() {
         return res.json();
       })
       .then(() => {
-        alert("Webhook added successfully.");
         toggleRepoExpansion(repo); // Refresh webhook details
       })
       .catch((err) => console.error("Failed to add webhook:", err));
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 text-gray-900">
       {!isAuthorized ? (
         <button
-          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-400"
+          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
           onClick={handleAuthorize}
         >
           Authorize GitHub
         </button>
       ) : (
         <div className="w-full max-w-4xl">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-3xl font-bold">Repositories</h2>
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-semibold">Repositories</h2>
             <button
-              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-400"
+              className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400"
               onClick={handleReauthorize}
             >
               Reauthorize
@@ -125,27 +124,27 @@ function App() {
             {repos.map((repo) => (
               <div
                 key={repo.id}
-                className={`p-4 border rounded-lg cursor-pointer ${
+                className={`p-4 border rounded-md shadow-sm cursor-pointer ${
                   expandedRepoId === repo.id
-                    ? "bg-blue-600 text-white"
-                    : "bg-gray-800 text-gray-400"
+                    ? "bg-blue-50 border-blue-500"
+                    : "bg-white border-gray-200"
                 }`}
                 onClick={() => toggleRepoExpansion(repo)}
               >
-                <h3 className="text-lg font-semibold">{repo.full_name}</h3>
-                <p className="text-sm">
+                <h3 className="text-lg font-medium">{repo.full_name}</h3>
+                <p className="text-sm text-gray-600">
                   {repo.description || "No description"}
                 </p>
 
                 {expandedRepoId === repo.id && (
                   <div className="mt-4">
-                    <h4 className="text-xl font-bold mb-2">Webhooks</h4>
+                    <h4 className="text-md font-semibold mb-2">Webhooks</h4>
                     <ul className="space-y-2">
                       {webhooks[repo.id]?.length > 0 ? (
                         webhooks[repo.id].map((webhook) => (
                           <li
                             key={webhook.id}
-                            className="p-2 border rounded-lg bg-gray-700 text-gray-300"
+                            className="p-3 border rounded-md bg-gray-100 text-gray-800"
                           >
                             <p>
                               <strong>URL:</strong> {webhook.config.url}
@@ -161,11 +160,11 @@ function App() {
                           </li>
                         ))
                       ) : (
-                        <p className="text-gray-400">No webhooks found.</p>
+                        <p className="text-gray-500">No webhooks found.</p>
                       )}
                     </ul>
                     <button
-                      className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
                       onClick={() => setupWebhook(repo)}
                     >
                       Setup Webhook
