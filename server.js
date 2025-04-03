@@ -50,7 +50,6 @@ app.get("/cd/api/github/callback", async (req, res) => {
     );
 
     const tokenData = await tokenResponse.json();
-    console.log("GitHub OAuth callback: Token response:", tokenData);
 
     if (tokenData.error) {
       console.error("GitHub OAuth callback: Error from GitHub:", tokenData);
@@ -59,7 +58,7 @@ app.get("/cd/api/github/callback", async (req, res) => {
       );
     }
 
-    accessToken = tokenData.access_token; // Store the token in memory
+    accessToken = tokenData.access_token;
     console.log("GitHub access token obtained successfully.");
 
     // Save the token response to a file
@@ -116,9 +115,12 @@ app.get("/cd/api/repos", async (req, res) => {
   }
 
   try {
-    const response = await fetch("https://api.github.com/user/repos", {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
+    const response = await fetch(
+      "https://api.github.com/user/repos?type=all", // Include type=all to fetch personal and organization repos
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }
+    );
     if (!response.ok) {
       throw new Error(`GitHub API responded with status ${response.status}`);
     }
