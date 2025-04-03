@@ -179,6 +179,38 @@ app.get("/cd/api/repos", async (req, res) => {
   }
 });
 
+// Fetch webhooks for a specific repository
+app.get("/cd/api/repos/:owner/:repo/hooks", async (req, res) => {
+  const { owner, repo } = req.params;
+
+  if (!accessToken) {
+    return res
+      .status(401)
+      .json({ error: "Unauthorized. Please authorize first." });
+  }
+
+  try {
+    const response = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/hooks`,
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `GitHub API responded with status ${response.status} for fetching hooks`
+      );
+    }
+
+    const hooks = await response.json();
+    res.json(hooks);
+  } catch (error) {
+    console.error("Error fetching webhooks:", error.message);
+    res.status(500).json({ error: "Failed to fetch webhooks." });
+  }
+});
+
 // Add webhooks to multiple repositories
 app.post("/cd/api/add-webhook", async (req, res) => {
   const { repoNames } = req.body;

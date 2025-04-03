@@ -72,11 +72,14 @@ function App() {
 
     setExpandedRepoId(repo.id); // Expand the selected repo
 
-    // Fetch webhooks for the selected repository
-    fetch(`https://api.github.com/repos/${repo.full_name}/hooks`, {
-      headers: { Authorization: `Bearer ${accessToken}` }, // Use the access token
-    })
-      .then((res) => res.json())
+    // Fetch webhooks for the selected repository from the server
+    fetch(`/cd/api/repos/${repo.owner.login}/${repo.name}/hooks`)
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error("Failed to fetch webhooks.");
+        }
+        return res.json();
+      })
       .then((data) =>
         setWebhooks((prev) => ({
           ...prev,
