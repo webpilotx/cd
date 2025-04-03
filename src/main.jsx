@@ -86,6 +86,11 @@ function App() {
         return res.json();
       })
       .then((data) => {
+        setWebhooks((prev) => ({
+          ...prev,
+          [repo.id]: data, // Store webhooks for the repo
+        }));
+
         // Check if the exact webhook exists
         const hasMatchingWebhook = data.some(
           (webhook) =>
