@@ -3,25 +3,22 @@ import { createRoot } from "react-dom/client";
 import "./index.css";
 
 function App() {
-  const [org, setOrg] = useState("");
   const [repos, setRepos] = useState([]);
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [selectedRepos, setSelectedRepos] = useState([]);
 
   useEffect(() => {
-    if (!org) return;
-
-    // Check if the server has an authorized token for the organization
-    fetch(`/cd/api/auth-status?org=${org}`)
+    // Check if the user is authorized
+    fetch("/cd/api/auth-status")
       .then((res) => res.json())
       .then((data) => setIsAuthorized(data.isAuthorized))
       .catch((err) => console.error("Failed to check auth status:", err));
-  }, [org]);
+  }, []);
 
   useEffect(() => {
-    if (!isAuthorized || !org) return;
+    if (!isAuthorized) return;
 
-    fetch(`/cd/api/repos?org=${org}`)
+    fetch("/cd/api/repos")
       .then((res) => {
         if (res.status === 401) {
           setIsAuthorized(false);
@@ -31,10 +28,10 @@ function App() {
       })
       .then(setRepos)
       .catch((err) => console.error("Failed to fetch repos:", err));
-  }, [isAuthorized, org]);
+  }, [isAuthorized]);
 
   const handleAuthorize = () => {
-    window.location.href = `/auth/github?org=${org}`;
+    window.location.href = "/cd/api/auth/github";
   };
 
   const handleRepoSelection = (repoName) => {
@@ -51,7 +48,7 @@ function App() {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ org, repoNames: selectedRepos }),
+      body: JSON.stringify({ repoNames: selectedRepos }),
     })
       .then((res) => {
         if (!res.ok) {
@@ -68,24 +65,16 @@ function App() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white">
-      <input
-        type="text"
-        placeholder="Enter organization name"
-        value={org}
-        onChange={(e) => setOrg(e.target.value)}
-        className="mb-4 px-4 py-2 rounded-lg text-black"
-      />
       {!isAuthorized ? (
         <button
           className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-400"
           onClick={handleAuthorize}
-          disabled={!org}
         >
-          Authorize GitHub Organization
+          Authorize GitHub
         </button>
       ) : (
         <div>
-          <h2 className="text-3xl font-bold">Tracked Repositories</h2>
+          <h2 className="text-3xl font-bold">Available Repositories</h2>
           <ul className="mt-4 space-y-2">
             {repos.map((repo) => (
               <li
@@ -95,11 +84,11 @@ function App() {
                 <label>
                   <input
                     type="checkbox"
-                    checked={selectedRepos.includes(repo.name)}
-                    onChange={() => handleRepoSelection(repo.name)}
+                    checked={selectedRepos.includes(repo.full_name)}
+                    onChange={() => handleRepoSelection(repo.full_name)}
                     className="mr-2"
                   />
-                  {repo.name}
+                  {repo.full_name}
                 </label>
               </li>
             ))}

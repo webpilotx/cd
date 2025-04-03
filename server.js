@@ -11,27 +11,26 @@ const PORT = process.env.PORT || 3000;
 const CLIENT_ID = process.env.GITHUB_CLIENT_ID;
 const CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET;
 
-const orgTokens = {}; // Map to store access tokens for multiple organizations
+let accessToken = null; // Store the single access token for the authenticated user
 
 // Redirect to GitHub authorization page
-app.get("/auth/github", (req, res) => {
-  const { org } = req.query;
-  if (!org) {
-    return res.status(400).send("Organization name is required.");
-  }
-  const redirectUri = `https://github.com/login/oauth/authorize?client_id=${CLIENT_ID}&scope=repo,read:org,admin:repo_hook&redirect_uri=http://localhost:3000/cd/api/github/callback?org=${org}`;
+app.get("/cd/api/auth/github", (req, res) => {
+  const redirectUri = `https://github.com/login/oauth/authorize?client_id=${CLIENT_ID}&scope=repo,read:org,admin:repo_hook&redirect_uri=http://localhost:3000/cd/api/github/callback`;
   res.redirect(redirectUri);
 });
 
 // Handle GitHub OAuth callback
 app.get("/cd/api/github/callback", async (req, res) => {
-  const { code, org } = req.query;
+  const { code } = req.query;
 
-  if (!org) {
-    return res.status(400).send("Organization name is required.");
+  if (!code) {
+    console.error("GitHub OAuth callback: Missing code parameter.");
+    return res.status(400).send("Missing code parameter.");
   }
 
   try {
+    console.log("GitHub OAuth callback: Received code:", code);
+
     const tokenResponse = await fetch(
       "https://github.com/login/oauth/access_token",
       {
@@ -49,39 +48,32 @@ app.get("/cd/api/github/callback", async (req, res) => {
     );
 
     const tokenData = await tokenResponse.json();
+    console.log("GitHub OAuth callback: Token response:", tokenData);
+
     if (tokenData.error) {
+      console.error("GitHub OAuth callback: Error from GitHub:", tokenData);
       throw new Error(
         tokenData.error_description || "Failed to obtain access token"
       );
     }
 
-    orgTokens[org] = tokenData.access_token; // Store the token for the organization
-    console.log(`GitHub access token obtained successfully for ${org}.`);
+    accessToken = tokenData.access_token; // Store the token
+    console.log("GitHub access token obtained successfully.");
 
     res.redirect("/"); // Redirect to the frontend after successful authorization
   } catch (error) {
-    console.error("Error during GitHub OAuth:", error.message);
-    res.status(500).send("Authorization failed.");
+    console.error("Error during GitHub OAuth callback:", error.message);
+    res.status(500).send("Authorization failed. Please try again.");
   }
 });
 
-// Check if the server has an authorized token for an organization
+// Check if the server has an authorized token
 app.get("/cd/api/auth-status", (req, res) => {
-  const { org } = req.query;
-  if (!org) {
-    return res.status(400).send("Organization name is required.");
-  }
-  res.json({ isAuthorized: !!orgTokens[org] });
+  res.json({ isAuthorized: !!accessToken });
 });
 
-// Fetch repositories in the organization
+// Fetch all repositories the authenticated user has access to
 app.get("/cd/api/repos", async (req, res) => {
-  const { org } = req.query;
-  if (!org) {
-    return res.status(400).send("Organization name is required.");
-  }
-
-  const accessToken = orgTokens[org];
   if (!accessToken) {
     return res
       .status(401)
@@ -89,7 +81,7 @@ app.get("/cd/api/repos", async (req, res) => {
   }
 
   try {
-    const response = await fetch(`https://api.github.com/orgs/${org}/repos`, {
+    const response = await fetch("https://api.github.com/user/repos", {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
     if (!response.ok) {
@@ -98,26 +90,19 @@ app.get("/cd/api/repos", async (req, res) => {
     const data = await response.json();
     res.json(data);
   } catch (error) {
-    console.error(`Error fetching repositories for ${org}:`, error.message);
+    console.error("Error fetching repositories:", error.message);
     res.status(500).json({ error: "Failed to fetch repositories" });
   }
 });
 
 // Add webhooks to multiple repositories
 app.post("/cd/api/add-webhook", async (req, res) => {
-  const { org, repoNames } = req.body;
+  const { repoNames } = req.body;
 
-  if (!org || !repoNames || !Array.isArray(repoNames)) {
+  if (!accessToken || !repoNames || !Array.isArray(repoNames)) {
     return res
       .status(400)
-      .send("Organization and an array of repository names are required.");
-  }
-
-  const accessToken = orgTokens[org];
-  if (!accessToken) {
-    return res
-      .status(401)
-      .json({ error: "Unauthorized. Please authorize first." });
+      .send("Access token and an array of repository names are required.");
   }
 
   try {
@@ -126,7 +111,7 @@ app.post("/cd/api/add-webhook", async (req, res) => {
 
     for (const repoName of repoNames) {
       const response = await fetch(
-        `https://api.github.com/repos/${org}/${repoName}/hooks`,
+        `https://api.github.com/repos/${repoName}/hooks`,
         {
           method: "POST",
           headers: {
@@ -158,9 +143,11 @@ app.post("/cd/api/add-webhook", async (req, res) => {
 
     res.status(201).json({ message: "Webhook processing completed.", results });
   } catch (error) {
-    console.error(`Error adding webhooks for ${org}:`, error.message);
+    console.error("Error adding webhooks:", error.message);
     res.status(500).json({ error: "Failed to add webhooks." });
   }
 });
 
-ViteExpress.listen(app, 3000, () => console.log("Server is listening..."));
+ViteExpress.listen(app, PORT, () =>
+  console.log(`Server running on port ${PORT}`)
+);
