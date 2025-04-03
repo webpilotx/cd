@@ -238,7 +238,10 @@ function App() {
                         Setup Webhook
                       </button>
                       {editingRepoId === repo.id && (
-                        <div className="mt-4">
+                        <div
+                          className="mt-4"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <h4 className="text-md font-semibold mb-2">
                             Edit Script
                           </h4>
