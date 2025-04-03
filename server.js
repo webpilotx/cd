@@ -5,6 +5,7 @@ import fetch from "node-fetch";
 import ViteExpress from "vite-express";
 import fs from "fs/promises";
 import path from "path";
+import { exec } from "child_process";
 
 const app = express();
 app.use(bodyParser.json());
@@ -357,43 +358,126 @@ app.get("/cd/api/repos/:owner/:repo/script", async (req, res) => {
 
 // Execute the bash script when the webhook is triggered
 app.post("/cd/api/webhook", async (req, res) => {
-  const { repository } = req.body;
+  const { repository, ref } = req.body;
 
-  if (!repository || !repository.owner || !repository.name) {
+  if (!repository || !repository.owner || !repository.name || !ref) {
     return res.status(400).json({ error: "Invalid webhook payload." });
   }
 
+  const branch = ref.split("/").pop(); // Extract branch name from ref (e.g., "refs/heads/main")
   const { owner, name: repo } = repository;
 
   try {
     const scriptPath = path.join(SCRIPTS_DIR, `${owner.login}_${repo}.sh`);
-    console.log(`Executing script from: ${scriptPath}`); // Log the script path
-    await fs.access(scriptPath); // Check if the script exists
+    const workingDir = path.join(SCRIPTS_DIR, `${owner.login}_${repo}`); // Use a subdirectory for the repo
+    const repoUrl = `https://github.com/${owner.login}/${repo}.git`;
 
-    const { exec } = await import("child_process");
-    exec(`bash ${scriptPath}`, (error, stdout, stderr) => {
+    console.log(
+      `Webhook triggered for ${owner.login}/${repo} on branch ${branch}`
+    );
+    console.log(`Working directory: ${workingDir}`);
+    console.log(`Script path: ${scriptPath}`);
+
+    // Ensure the working directory exists
+    await fs.mkdir(workingDir, { recursive: true });
+
+    // Clone or pull the repository
+    const gitCommand = `
+      cd ${workingDir} &&
+      if [ -d ".git" ]; then
+        git pull origin ${branch};
+      else
+        git clone --branch ${branch} ${repoUrl} .;
+      fi
+    `;
+
+    exec(gitCommand, async (error, stdout, stderr) => {
       if (error) {
-        console.error(
-          `Error executing script for ${owner.login}/${repo}:`,
-          stderr
-        );
-        return res.status(500).json({ error: "Failed to execute script." });
+        console.error(`Git operation failed: ${stderr}`);
+        return res
+          .status(500)
+          .json({ error: "Failed to clone or pull repository." });
       }
-      console.log(`Script executed for ${owner.login}/${repo}:`, stdout);
-      res.status(200).json({ message: "Script executed successfully." });
+
+      console.log(`Git operation output: ${stdout}`);
+
+      // Run the script
+      exec(
+        `bash ${scriptPath}`,
+        { cwd: workingDir },
+        (error, stdout, stderr) => {
+          if (error) {
+            console.error(`Script execution failed: ${stderr}`);
+            return res.status(500).json({ error: "Failed to execute script." });
+          }
+
+          console.log(`Script executed successfully: ${stdout}`);
+          res.status(200).json({ message: "Script executed successfully." });
+        }
+      );
     });
   } catch (error) {
-    if (error.code === "ENOENT") {
-      console.error(
-        `Script not found for ${owner.login}/${repo}:`,
-        error.message
-      );
-      return res.status(404).json({
-        error: `Script not found for repository ${owner.login}/${repo}.`,
-      });
-    }
     console.error("Error handling webhook:", error.message);
     res.status(500).json({ error: "Failed to handle webhook." });
+  }
+});
+
+// Run the script for a specific repository
+app.post("/cd/api/repos/:owner/:repo/run-script", async (req, res) => {
+  const { owner, repo } = req.params;
+  const { branch, workingDir } = req.body;
+
+  if (!branch || !workingDir) {
+    return res
+      .status(400)
+      .json({ error: "Branch and working directory are required." });
+  }
+
+  try {
+    const repoUrl = `https://github.com/${owner}/${repo}.git`;
+    const scriptPath = path.join(SCRIPTS_DIR, `${owner}_${repo}.sh`);
+
+    // Ensure the working directory exists
+    await fs.mkdir(workingDir, { recursive: true });
+
+    // Clone or pull the repository
+    const gitCommand = `
+      cd ${workingDir} &&
+      if [ -d ".git" ]; then
+        git pull origin ${branch};
+      else
+        git clone --branch ${branch} ${repoUrl} .;
+      fi
+    `;
+
+    exec(gitCommand, async (error, stdout, stderr) => {
+      if (error) {
+        console.error(`Git operation failed: ${stderr}`);
+        return res
+          .status(500)
+          .json({ error: "Failed to clone or pull repository." });
+      }
+
+      console.log(`Git operation output: ${stdout}`);
+
+      // Run the script
+      exec(
+        `bash ${scriptPath}`,
+        { cwd: workingDir },
+        (error, stdout, stderr) => {
+          if (error) {
+            console.error(`Script execution failed: ${stderr}`);
+            return res.status(500).json({ error: "Failed to execute script." });
+          }
+
+          console.log(`Script executed successfully: ${stdout}`);
+          res.status(200).json({ message: stdout });
+        }
+      );
+    });
+  } catch (error) {
+    console.error("Error running script:", error.message);
+    res.status(500).json({ error: "Failed to run script." });
   }
 });
 

@@ -13,6 +13,8 @@ function App() {
   const [scriptContent, setScriptContent] = useState(""); // Store the script content
   const [checkingWebhooks, setCheckingWebhooks] = useState(null); // Track webhook checking state
   const [installingWebhookRepoId, setInstallingWebhookRepoId] = useState(null); // Track webhook installation state
+  const [selectedBranch, setSelectedBranch] = useState("main"); // Track selected branch
+  const [workingDir, setWorkingDir] = useState(""); // Track working directory
 
   useEffect(() => {
     // Check if the user is authorized and fetch the access token
@@ -195,6 +197,34 @@ function App() {
       });
   };
 
+  const runScript = (repo) => {
+    if (!workingDir.trim()) {
+      alert("Please specify a working directory.");
+      return;
+    }
+
+    fetch(`/cd/api/repos/${repo.owner.login}/${repo.name}/run-script`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ branch: selectedBranch, workingDir }),
+    })
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error("Failed to run script.");
+        }
+        return res.json();
+      })
+      .then((data) => {
+        alert(`Script executed successfully:\n${data.message}`);
+      })
+      .catch((err) => {
+        console.error("Failed to run script:", err);
+        alert("Failed to run script.");
+      });
+  };
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 text-gray-900 px-4">
       {!isAuthorized ? (
@@ -265,12 +295,44 @@ function App() {
                             onChange={(e) => setScriptContent(e.target.value)}
                             placeholder="Enter your bash script here..."
                           />
-                          <div className="flex mt-2">
+                          <div className="mt-4">
+                            <label className="block text-sm font-medium text-gray-700">
+                              Branch
+                            </label>
+                            <input
+                              type="text"
+                              className="w-full p-2 border rounded-md"
+                              value={selectedBranch}
+                              onChange={(e) =>
+                                setSelectedBranch(e.target.value)
+                              }
+                              placeholder="Enter branch name (e.g., main)"
+                            />
+                          </div>
+                          <div className="mt-4">
+                            <label className="block text-sm font-medium text-gray-700">
+                              Working Directory
+                            </label>
+                            <input
+                              type="text"
+                              className="w-full p-2 border rounded-md"
+                              value={workingDir}
+                              onChange={(e) => setWorkingDir(e.target.value)}
+                              placeholder="Enter working directory path"
+                            />
+                          </div>
+                          <div className="flex mt-4">
                             <button
                               className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-400"
                               onClick={() => saveScript(repo)}
                             >
                               Save Script
+                            </button>
+                            <button
+                              className="ml-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                              onClick={() => runScript(repo)}
+                            >
+                              Run Script
                             </button>
                             {webhooks[repo.id]?.find(
                               (webhook) =>
