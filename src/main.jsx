@@ -11,6 +11,7 @@ function App() {
   const [loading, setLoading] = useState(false); // Track loading state
   const [editingRepoId, setEditingRepoId] = useState(null); // Track the repo being edited
   const [scriptContent, setScriptContent] = useState(""); // Store the script content
+  const [checkingWebhooks, setCheckingWebhooks] = useState(null); // Track webhook checking state
 
   useEffect(() => {
     // Check if the user is authorized and fetch the access token
@@ -73,6 +74,7 @@ function App() {
     }
 
     setExpandedRepoId(repo.id); // Expand the selected repo
+    setCheckingWebhooks(repo.id); // Start checking webhooks
 
     // Fetch webhooks for the selected repository from the server
     fetch(`/cd/api/repos/${repo.owner.login}/${repo.name}/hooks`)
@@ -83,16 +85,21 @@ function App() {
         return res.json();
       })
       .then((data) => {
-        setWebhooks((prev) => ({
-          ...prev,
-          [repo.id]: data,
-        }));
-        if (data.length > 0) {
-          fetchScript(repo); // Fetch the script if webhooks are installed
+        // Check if the exact webhook exists
+        const hasMatchingWebhook = data.some(
+          (webhook) =>
+            webhook.config.url === `${window.location.origin}/cd/api/webhook`
+        );
+
+        if (hasMatchingWebhook) {
+          fetchScript(repo); // Fetch the script if a matching webhook is installed
           setEditingRepoId(repo.id); // Automatically enable editing
+        } else {
+          setEditingRepoId(null); // Disable editing if no matching webhook
         }
       })
-      .catch((err) => console.error("Failed to fetch webhooks:", err));
+      .catch((err) => console.error("Failed to fetch webhooks:", err))
+      .finally(() => setCheckingWebhooks(null)); // Stop checking webhooks
   };
 
   const setupWebhook = (repo) => {
@@ -206,41 +213,17 @@ function App() {
 
                   {expandedRepoId === repo.id && (
                     <div className="mt-4">
-                      <h4 className="text-md font-semibold mb-2">Webhooks</h4>
-                      <ul className="space-y-2">
-                        {webhooks[repo.id]?.length > 0 ? (
-                          webhooks[repo.id].map((webhook) => (
-                            <li
-                              key={webhook.id}
-                              className="p-3 border rounded-md bg-gray-50 text-gray-800"
-                            >
-                              <p>
-                                <strong>URL:</strong> {webhook.config.url}
-                              </p>
-                              <p>
-                                <strong>Events:</strong>{" "}
-                                {webhook.events.join(", ")}
-                              </p>
-                              <p>
-                                <strong>Status:</strong>{" "}
-                                {webhook.active ? "Active" : "Inactive"}
-                              </p>
-                            </li>
-                          ))
-                        ) : (
-                          <p className="text-gray-500">No webhooks found.</p>
-                        )}
-                      </ul>
-                      <button
-                        className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                        onClick={() => setupWebhook(repo)}
-                      >
-                        Setup Webhook
-                      </button>
-                      {editingRepoId === repo.id && (
+                      <h4 className="text-md font-semibold mb-2">
+                        Webhook Status
+                      </h4>
+                      {checkingWebhooks === repo.id ? (
+                        <div className="text-center text-gray-500">
+                          Checking webhook status...
+                        </div>
+                      ) : editingRepoId === repo.id ? (
                         <div
                           className="mt-4"
-                          onClick={(e) => e.stopPropagation()}
+                          onClick={(e) => e.stopPropagation()} // Prevent event propagation
                         >
                           <h4 className="text-md font-semibold mb-2">
                             Edit Script
@@ -267,6 +250,13 @@ function App() {
                             </button>
                           </div>
                         </div>
+                      ) : (
+                        <button
+                          className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                          onClick={() => setupWebhook(repo)}
+                        >
+                          Setup Webhook
+                        </button>
                       )}
                     </div>
                   )}
